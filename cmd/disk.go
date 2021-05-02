@@ -82,7 +82,7 @@ func (disk *DiskStatus) DiskInfo(newFileSize uint64) string {
 	if disk.Avail > (newFileSize + uint64(5*MB)) {
 		color = "#00ff00" // green
 	}
-	return fmt.Sprintf(`<font color="%s">%.2fGB Total, %.2fGB Used</font>`,
+	return fmt.Sprintf(`<font color="%s">%.2fGB Free, %.2fGB Used</font>`,
 		color,
 		float64(disk.Avail)/float64(GB),
 		float64(disk.Used)/float64(GB))

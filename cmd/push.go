@@ -1,7 +1,7 @@
 package main
 
 /*
- * RSS Download Manager
+ * RSS Download Tool
  * Copyright (c) 2021 Aaron Turner  <aturner at synfin dot net>
  *
  * This program is free software: you can redistribute it

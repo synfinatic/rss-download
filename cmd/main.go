@@ -1,7 +1,7 @@
 package main
 
 /*
- * RSS Download Manager
+ * RSS Download Tool
  * Copyright (c) 2021 Aaron Turner  <aturner at synfin dot net>
  *
  * This program is free software: you can redistribute it
@@ -23,7 +23,6 @@ import (
 	"os"
 
 	"github.com/alecthomas/kong"
-	//	"github.com/gregdel/pushover"
 	"github.com/knadh/koanf"
 	"github.com/knadh/koanf/parsers/yaml"
 	"github.com/knadh/koanf/providers/file"
