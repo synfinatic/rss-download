@@ -74,6 +74,10 @@ func (rfm *RfmFeedFilter) GetPublishFormat() string {
 	return RFM_PUBLISH_FORMAT
 }
 
+func (rfm *RfmFeedFilter) GetFeedType() string {
+	return rfm.FeedType
+}
+
 func (rfm RfmFeedFilter) GetParam(fieldName string) (string, error) {
 	v := reflect.ValueOf(rfm)
 	return GetParamTag(v, fieldName)

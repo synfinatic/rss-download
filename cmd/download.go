@@ -19,41 +19,68 @@ package main
  */
 
 import (
+	"encoding/json"
 	"fmt"
+	"io/ioutil"
+
 	log "github.com/sirupsen/logrus"
 )
 
 type DownloadCmd struct {
-	Feed string `kong:"arg,required,help='Specify feed name to download'"`
+	Feed   string `kong:"arg,required,help='Specify feed name to download'"`
+	Output string `kong:"optional,name='output',short='o',default='',help='Output file'"`
+	Append bool   `kong:"optiona,name='append',short='a',default=false,help='Append to existing output file'"`
 }
 
 func (cmd *DownloadCmd) Run(ctx *RunContext) error {
+	feed := fmt.Sprintf("feeds.%s", ctx.Cli.Download.Feed)
 	feedType := ctx.Konf.String(fmt.Sprintf("feeds.%s.FeedType", ctx.Cli.Download.Feed))
 	log.Debugf("FeedType: %s", feedType)
+
+	outputFile := fmt.Sprintf("%s.json", ctx.Cli.Download.Feed)
+	if ctx.Cli.Download.Output != "" {
+		outputFile = ctx.Cli.Download.Output
+	}
 
 	filter, ok := RSS_FEED_TYPES[feedType]
 	if !ok {
 		return fmt.Errorf("Unknown feed type: %s", feedType)
 	}
 
-	feed := fmt.Sprintf("feeds.%s", ctx.Cli.Download.Feed)
 	err := ctx.Konf.Unmarshal(feed, filter)
 	if err != nil {
 		return err
 	}
 	log.Debugf("Filter: %v", filter)
 
-	entries, err := DownloadFeed(RssFeedFilter(filter))
+	entries, err := DownloadFeed(ctx.Cli.Download.Feed, RssFeedFilter(filter))
 	if err != nil {
 		return err
 	}
 
-	total := len(entries)
-	for i, entry := range entries {
-		fmt.Printf("%d %s", i, entry.Sprint())
-		if i+1 < total {
-			fmt.Printf("\n")
+	oldEntries := []RssFeedEntry{}
+	if ctx.Cli.Download.Append {
+		fileBytes, err := ioutil.ReadFile(outputFile)
+		if err == nil {
+			json.Unmarshal(fileBytes, &oldEntries)
 		}
 	}
-	return nil
+
+	for _, entry := range entries {
+		if !RssFeedEntryExits(oldEntries, entry) {
+			oldEntries = append(oldEntries, entry)
+		}
+	}
+	fileBytes, _ := json.MarshalIndent(oldEntries, "", "  ")
+	return ioutil.WriteFile(outputFile, fileBytes, 0644)
+}
+
+// returns true or false if the entry is already in the entries
+func RssFeedEntryExits(entries []RssFeedEntry, entry RssFeedEntry) bool {
+	for _, e := range entries {
+		if e.Title == entry.Title {
+			return true
+		}
+	}
+	return false
 }

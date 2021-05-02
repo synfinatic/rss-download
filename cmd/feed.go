@@ -35,6 +35,7 @@ const (
 
 // Define the interface for the RSS Feed Filter
 type RssFeedFilter interface {
+	GetFeedType() string
 	GetParam(string) (string, error)
 	GenerateUrl() string
 	GetPublishFormat() string
@@ -55,14 +56,15 @@ func GetParamTag(v reflect.Value, fieldName string) (string, error) {
 
 // Represents a single RSS Feed Entry
 type RssFeedEntry struct {
-	Title             string    `json:Title`
-	Published         time.Time `json:Published`
-	Categories        []string  `json:Categories`
-	Url               string    `json:Url`
-	TorrentUrl        string    `json:TorrentUrl`
-	TorrentBytes      int64     `json:TorrentBytes`
-	TorrentSize       string    `json:TorrentSize`
-	TorrentCategories []string  `json:TorrentCategories`
+	FeedName          string    `json:"FeedName"`
+	Title             string    `json:"Title"`
+	Published         time.Time `json:"Published"`
+	Categories        []string  `json:"Categories"`
+	Url               string    `json:"Url"`
+	TorrentUrl        string    `json:"TorrentUrl"`
+	TorrentBytes      int64     `json:"TorrentBytes"`
+	TorrentSize       string    `json:"TorrentSize"`
+	TorrentCategories []string  `json:"TorrentCategories"`
 }
 
 // returns an entry as a pretty string
@@ -77,7 +79,7 @@ func (rfe *RssFeedEntry) Sprint() string {
 	return ret
 }
 
-func DownloadFeed(filter RssFeedFilter) ([]RssFeedEntry, error) {
+func DownloadFeed(feedname string, filter RssFeedFilter) ([]RssFeedEntry, error) {
 	ret := []RssFeedEntry{}
 	url := filter.GenerateUrl()
 	log.Errorf("RSS Feed URL = %s", url)
@@ -119,7 +121,7 @@ func DownloadFeed(filter RssFeedFilter) ([]RssFeedEntry, error) {
 				for _, ext := range val2 {
 					switch name := ext.Attrs["name"]; name {
 					case "category":
-						torrentCategories = append(torrentCategories, ext.Attrs["value"])
+						torrentCategories = strings.Split(ext.Attrs["value"], ", ")
 					case "size":
 						torrentSize = ext.Attrs["value"]
 					}
@@ -128,6 +130,7 @@ func DownloadFeed(filter RssFeedFilter) ([]RssFeedEntry, error) {
 		}
 		ret = append(ret,
 			RssFeedEntry{
+				FeedName:          feedname,
 				Title:             item.Title,
 				Published:         t,
 				Categories:        item.Categories,

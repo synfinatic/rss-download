@@ -20,11 +20,8 @@ package main
 
 import (
 	"fmt"
-	"strings"
 
-	//	"github.com/gregdel/pushover"
-	//	log "github.com/sirupsen/logrus"
-	"github.com/mmcdole/gofeed"
+	log "github.com/sirupsen/logrus"
 )
 
 type ListCmd struct {
@@ -35,7 +32,7 @@ func (cmd *ListCmd) Run(ctx *RunContext) error {
 	if ctx.Cli.List.Feed == "" {
 		return cmd.ListAllFeeds(ctx)
 	} else {
-		return cmd.ListFeed(ctx, ctx.Cli.List.Feed)
+		return cmd.ListFeed(ctx)
 	}
 }
 
@@ -59,37 +56,33 @@ func (cmd *ListCmd) ListAllFeeds(ctx *RunContext) error {
 }
 
 // List the contents of the given feed
-func (cmd *ListCmd) ListFeed(ctx *RunContext, feed string) error {
-	fp := gofeed.NewParser()
-	selector := fmt.Sprintf("feeds.%s.url", feed)
-	url := ctx.Konf.String(selector)
-	urlFeed, err := fp.ParseURL(url)
-	if err != nil {
-		return fmt.Errorf("Unable to load %s: %s", url, feed)
+func (cmd *ListCmd) ListFeed(ctx *RunContext) error {
+	feedType := ctx.Konf.String(fmt.Sprintf("feeds.%s.FeedType", ctx.Cli.List.Feed))
+	log.Debugf("FeedType: %s", feedType)
+
+	filter, ok := RSS_FEED_TYPES[feedType]
+	if !ok {
+		return fmt.Errorf("Unknown feed type: %s", feedType)
 	}
 
-	for i, item := range urlFeed.Items {
-		fmt.Printf("%d\tTitle: %s\n", i, item.Title)
-		fmt.Printf("\tPubDate: %s\n", item.Published)
-		// also item.PublishedParsed => *time.Time
-		fmt.Printf("\tCategory: %s\n", strings.Join(item.Categories, ", "))
-		fmt.Printf("\tUrl: %s\n", item.Link)
-		for _, enclosure := range item.Enclosures {
-			if enclosure.Type == "application/x-bittorrent" {
-				fmt.Printf("\tTorrent: %v [%s]\n", enclosure.URL, enclosure.Length)
-			}
+	feedPath := fmt.Sprintf("feeds.%s", ctx.Cli.List.Feed)
+	err := ctx.Konf.Unmarshal(feedPath, filter)
+	if err != nil {
+		return err
+	}
+	log.Debugf("Filter: %v", filter)
+
+	entries, err := DownloadFeed(ctx.Cli.List.Feed, RssFeedFilter(filter))
+	if err != nil {
+		return err
+	}
+
+	total := len(entries)
+	for i, entry := range entries {
+		fmt.Printf("%d %s", i, entry.Sprint())
+		if i+1 < total {
+			fmt.Printf("\n")
 		}
-		for key, val := range item.Custom {
-			fmt.Printf("\tCustom: %s => %s", key, val)
-		}
-		for x, val1 := range item.Extensions {
-			for y, val2 := range val1 {
-				for _, ext := range val2 {
-					fmt.Printf("\t\t%s:%s %s => %s\n", x, y, ext.Attrs["name"], ext.Attrs["value"])
-				}
-			}
-		}
-		fmt.Printf("\n")
 	}
 
 	return nil

@@ -19,11 +19,16 @@ package main
  */
 
 import (
-//	"encoding/json"
+//	"fmt"
+
+//	log "github.com/sirupsen/logrus"
 )
 
-type Torrent struct {
-	Title       string `json:"title"`
-	Description string `json:"title"`
-	Url         string `json:"url"`
+type PushCmd struct {
+	Feed  string `kong:"arg,required,help='Specify feed name to download'"`
+	Cache string `kong:"optional,name='cache',short='c',default='rss-download.yaml',help='Cache file'"`
+}
+
+func (cmd *PushCmd) Run(ctx *RunContext) error {
+	return nil
 }
