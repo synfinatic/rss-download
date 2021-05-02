@@ -19,16 +19,58 @@ package main
  */
 
 import (
-//	"fmt"
+	"encoding/json"
+	"fmt"
+	"io/ioutil"
 
-//	log "github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
 
 type PushCmd struct {
 	Feed  string `kong:"arg,required,help='Specify feed name to download'"`
-	Cache string `kong:"optional,name='cache',short='c',default='rss-download.yaml',help='Cache file'"`
+	Cache string `kong:"optional,name='cache',short='c',default='rss-download.json',help='Cache file'"`
 }
 
 func (cmd *PushCmd) Run(ctx *RunContext) error {
-	return nil
+	// load our cache
+	cacheEntries := []RssFeedEntry{}
+	cacheBytes, err := ioutil.ReadFile(ctx.Cli.Push.Cache)
+	if err != nil {
+		log.Warnf("Creating new cache file.")
+	} else {
+		json.Unmarshal(cacheBytes, &cacheEntries)
+	}
+
+	// get our filter
+	feedType := ctx.Konf.String(fmt.Sprintf("feeds.%s.FeedType", ctx.Cli.Push.Feed))
+	filter, ok := RSS_FEED_TYPES[feedType]
+	if !ok {
+		return fmt.Errorf("Unknown feed type: %s", feedType)
+	}
+
+	feed := fmt.Sprintf("feeds.%s", ctx.Cli.Push.Feed)
+	err = ctx.Konf.Unmarshal(feed, filter)
+	if err != nil {
+		return err
+	}
+	log.Debugf("Filter: %v", filter)
+	newEntries, err := DownloadFeed(ctx.Cli.Push.Feed, RssFeedFilter(filter))
+	if err != nil {
+		return err
+	}
+
+	for _, entry := range newEntries {
+		if !RssFeedEntryExits(cacheEntries, entry) {
+			log.Debugf("New entry: %s", entry.Title)
+			err := SendPush(ctx.Konf, entry, filter)
+			if err != nil {
+				log.WithError(err).Errorf("Unable to Push notification for %s", entry.Title)
+			} else {
+				cacheEntries = append(cacheEntries, entry)
+			}
+		}
+	}
+
+	cacheBytes, _ = json.MarshalIndent(cacheEntries, "", "  ")
+	return ioutil.WriteFile(ctx.Cli.Push.Cache, cacheBytes, 0644)
 }

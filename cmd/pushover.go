@@ -36,7 +36,7 @@ const (
 	DISK_PATH          = "DiskPath"
 )
 
-func SendPush(konf *koanf.Koanf, entry RssFeedEntry) error {
+func SendPush(konf *koanf.Koanf, entry RssFeedEntry, filter RssFeedFilter) error {
 	appKey := konf.String(PUSHOVER_APP_KEY)
 	userKeys := konf.Strings(PUSHOVER_USER_KEYS)
 	diskPath := konf.String(DISK_PATH)
@@ -51,7 +51,7 @@ func SendPush(konf *koanf.Koanf, entry RssFeedEntry) error {
 	diskInfo := ""
 	if diskPath != "" {
 		disk := DiskUsage(diskPath)
-		diskInfo = disk.DiskInfo()
+		diskInfo = disk.DiskInfo(entry.TorrentBytes)
 	}
 
 	// if device names are given, use that, otherwise send to all devices
@@ -73,10 +73,15 @@ Torrent Size: %s
 %s
 
 <a href="%s">More Info</a>
-	`, entry.FeedName, entry.Title, entry.TorrentSize, diskInfo, entry.Url)
+
+<a href="https://www.synfin.net/transmission/web/">Highlandpark Transmission</a>
+
+<a href="https://brix.int.synfin.net/transmission/web/">Brix Transmission</a>
+	`, entry.FeedName, entry.Title, entry.TorrentSize, diskInfo, filter.UrlRewriter(entry.Url))
 
 	msgTitle := entry.Title
 	message := pushover.Message{
+		HTML:        true,
 		Message:     msgText,
 		Title:       msgTitle,
 		Priority:    PUSHOVER_PRIORITY,

@@ -21,8 +21,10 @@ package main
 import (
 	"fmt"
 	"reflect"
+	"regexp"
 	"strings"
-	// log "github.com/sirupsen/logrus"
+
+	log "github.com/sirupsen/logrus"
 )
 
 const (
@@ -81,4 +83,12 @@ func (rfm *RfmFeedFilter) GetFeedType() string {
 func (rfm RfmFeedFilter) GetParam(fieldName string) (string, error) {
 	v := reflect.ValueOf(rfm)
 	return GetParamTag(v, fieldName)
+}
+
+// Need to rewrite the Url field to work on mobile
+func (rfm *RfmFeedFilter) UrlRewriter(url string) string {
+	re := regexp.MustCompile(`^https://racingfor.me/details/([0-9]+)/.*$`)
+	newUrl := re.ReplaceAll([]byte(url), []byte("https://www.racingfor.me//details/${1}"))
+	log.Debugf("new url: %s", newUrl)
+	return string(newUrl)
 }

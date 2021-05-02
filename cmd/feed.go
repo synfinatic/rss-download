@@ -39,6 +39,7 @@ type RssFeedFilter interface {
 	GetParam(string) (string, error)
 	GenerateUrl() string
 	GetPublishFormat() string
+	UrlRewriter(string) string
 }
 
 var RSS_FEED_TYPES = map[string]RssFeedFilter{
@@ -62,7 +63,7 @@ type RssFeedEntry struct {
 	Categories        []string  `json:"Categories"`
 	Url               string    `json:"Url"`
 	TorrentUrl        string    `json:"TorrentUrl"`
-	TorrentBytes      int64     `json:"TorrentBytes"`
+	TorrentBytes      uint64    `json:"TorrentBytes"`
 	TorrentSize       string    `json:"TorrentSize"`
 	TorrentCategories []string  `json:"TorrentCategories"`
 }
@@ -82,7 +83,7 @@ func (rfe *RssFeedEntry) Sprint() string {
 func DownloadFeed(feedname string, filter RssFeedFilter) ([]RssFeedEntry, error) {
 	ret := []RssFeedEntry{}
 	url := filter.GenerateUrl()
-	log.Errorf("RSS Feed URL = %s", url)
+	log.Debugf("RSS Feed URL = %s", url)
 	fp := gofeed.NewParser()
 
 	feed, err := fp.ParseURL(url)
@@ -99,12 +100,12 @@ func DownloadFeed(feedname string, filter RssFeedFilter) ([]RssFeedEntry, error)
 
 		// figure out torrent info
 		torrentUrl := ""
-		torrentBytes := int64(0)
+		torrentBytes := uint64(0)
 
 		for _, enclosure := range item.Enclosures {
 			if enclosure.Type == "application/x-bittorrent" {
 				torrentUrl = enclosure.URL
-				torrentBytes, err = strconv.ParseInt(enclosure.Length, 10, 64)
+				torrentBytes, err = strconv.ParseUint(enclosure.Length, 10, 64)
 				if err != nil {
 					return ret, fmt.Errorf("Unable to parse Torrent Bytes `%s`: %s",
 						enclosure.Length, err)

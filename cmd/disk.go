@@ -4,7 +4,9 @@ package main
 
 import (
 	"fmt"
+	"os"
 
+	log "github.com/sirupsen/logrus"
 	syscall "golang.org/x/sys/unix"
 )
 
@@ -27,17 +29,61 @@ func DiskUsage(path string) (disk DiskStatus) {
 	fs := syscall.Statfs_t{}
 	err := syscall.Statfs(path, &fs)
 	if err != nil {
+		log.WithError(err).Errorf("Unable to Statfs: %s", path)
 		return
 	}
 	disk.All = fs.Blocks * uint64(fs.Bsize)
 	disk.Avail = fs.Bavail * uint64(fs.Bsize)
 	disk.Free = fs.Bfree * uint64(fs.Bsize)
-	disk.Used = disk.All - disk.Free
+	info, err := os.Lstat(path)
+	if err != nil {
+		log.WithError(err).Errorf("Unable to Lstat: %s", path)
+		return
+	}
+	disk.Used, err = GetDirectorySize(path, info)
+	if err != nil {
+		log.WithError(err).Errorf("Unable to get directory size: '%s'", path)
+	}
 	return
 }
 
-func (disk *DiskStatus) DiskInfo() string {
-	return fmt.Sprintf("%.2fGB Total, %.2fGB Free",
+func GetDirectorySize(path string, info os.FileInfo) (uint64, error) {
+	var size uint64
+
+	dir, err := os.Open(path)
+	if err != nil {
+		return 0, err
+	}
+	defer dir.Close()
+
+	files, err := dir.Readdir(-1)
+	if err != nil {
+		return 0, err
+	}
+
+	for _, file := range files {
+		if file.IsDir() {
+			subdir := fmt.Sprintf("%s/%s", path, file.Name())
+			s, err := GetDirectorySize(subdir, file)
+			if err != nil {
+				return 0, fmt.Errorf("failed recurse %s: %s", subdir, err)
+			}
+			size += s
+		} else {
+			size += uint64(file.Size())
+		}
+	}
+
+	return size, nil
+}
+
+func (disk *DiskStatus) DiskInfo(newFileSize uint64) string {
+	color := "#ff0000" // red
+	if disk.Avail > (newFileSize + uint64(5*MB)) {
+		color = "#00ff00" // green
+	}
+	return fmt.Sprintf(`<font color="%s">%.2fGB Total, %.2fGB Used</font>`,
+		color,
 		float64(disk.Avail)/float64(GB),
 		float64(disk.Used)/float64(GB))
 }
