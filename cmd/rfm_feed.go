@@ -32,27 +32,51 @@ const (
 )
 
 // Impliment the RFM feed filter
-type RfmFeedFilter struct {
+type RfmFeed struct {
 	FeedType         string
-	BaseUrl          string   `koanf:"BaseUrl"`
-	Terms            []string `koanf:"Terms" param:"s"`
-	Category         int64    `koanf:"Category" param:"c"`
-	Results          int64    `koanf:"Results" param:"l"`
-	Uploader         string   `koanf:"Uploader" param:"p"`
-	SearchDecription bool     `koanf:"SearchDecription" param:"d"`
-	StartDate        string   `koanf:"StartDate" param:"sd"`
-	EndDate          string   `koanf:"EndDate" param:"ed"`
+	BaseUrl          string                `koanf:"BaseUrl"`
+	Filters          *map[string]RssFilter `koanf:"Filters"`
+	Results          int64                 `koanf:"Results" param:"l"`
+	Category         int64                 `koanf:"Category" param:"c"`
+	Terms            []string              `koanf:"Terms" param:"s"`
+	Uploader         string                `koanf:"Uploader" param:"p"`
+	StartDate        string                `koanf:"StartDate" param:"sd"`
+	EndDate          string                `koanf:"EndDate" param:"ed"`
+	SearchDecription bool                  `koanf:"SearchDecription" param:"d"`
 }
 
-func (rfm *RfmFeedFilter) GenerateUrl() string {
+// hack around RSS_FEED_TYPES causing stale data to be left around
+func (rfm *RfmFeed) Reset() {
+	rfm.FeedType = "RFM"
+	rfm.BaseUrl = ""
+	rfm.Filters = &map[string]RssFilter{}
+	rfm.Results = 0
+	rfm.Category = 0
+	rfm.Terms = []string{}
+	rfm.Uploader = ""
+	rfm.StartDate = ""
+	rfm.EndDate = ""
+	rfm.SearchDecription = false
+}
+
+func (rfm *RfmFeed) GetFilters() map[string]RssFilter {
+	return *rfm.Filters
+}
+
+func (rfm *RfmFeed) GenerateUrl() string {
 	urlParts := []string{}
 	if len(rfm.Terms) > 0 {
 		p, _ := rfm.GetParam("Terms")
 		urlParts = append(urlParts, fmt.Sprintf("%s=%s", p, strings.Join(rfm.Terms, "%20")))
 	}
-	c, _ := rfm.GetParam("Category")
-	r, _ := rfm.GetParam("Results")
-	urlParts = append(urlParts, fmt.Sprintf("%s=%d&%s=%d", c, rfm.Category, r, rfm.Results))
+	if rfm.Category != 0 {
+		p, _ := rfm.GetParam("Category")
+		urlParts = append(urlParts, fmt.Sprintf("%s=%d", p, rfm.Category))
+	}
+	if rfm.Results != 0 {
+		p, _ := rfm.GetParam("Results")
+		urlParts = append(urlParts, fmt.Sprintf("%s=%d", p, rfm.Results))
+	}
 	if rfm.Uploader != "" {
 		p, _ := rfm.GetParam("Uploader")
 		urlParts = append(urlParts, fmt.Sprintf("%s=%s", p, rfm.Uploader))
@@ -72,23 +96,38 @@ func (rfm *RfmFeedFilter) GenerateUrl() string {
 	return fmt.Sprintf("%s?%s", rfm.BaseUrl, strings.Join(urlParts, "&"))
 }
 
-func (rfm *RfmFeedFilter) GetPublishFormat() string {
+func (rfm *RfmFeed) GetPublishFormat() string {
 	return RFM_PUBLISH_FORMAT
 }
 
-func (rfm *RfmFeedFilter) GetFeedType() string {
+func (rfm *RfmFeed) GetFeedType() string {
 	return rfm.FeedType
 }
 
-func (rfm RfmFeedFilter) GetParam(fieldName string) (string, error) {
+func (rfm RfmFeed) GetParam(fieldName string) (string, error) {
 	v := reflect.ValueOf(rfm)
 	return GetParamTag(v, fieldName)
 }
 
 // Need to rewrite the Url field to work on mobile
-func (rfm *RfmFeedFilter) UrlRewriter(url string) string {
+func (rfm *RfmFeed) UrlRewriter(url string) string {
 	re := regexp.MustCompile(`^https://racingfor.me/details/([0-9]+)/.*$`)
 	newUrl := re.ReplaceAll([]byte(url), []byte("https://www.racingfor.me//details/${1}"))
 	log.Debugf("new url: %s", newUrl)
 	return string(newUrl)
+}
+
+// Returns if the given entry is a match and if so, which Filter
+func (rf *RfmFeed) Match(entry RssFeedEntry) (bool, string) {
+	log.Debugf("Looking for match of %s", entry.Title)
+	for fname, filter := range *rf.Filters {
+		for _, c := range entry.Categories {
+			if filter.HasCategory(c) {
+				if filter.Match(entry.Title) || filter.Match(entry.Description) {
+					return true, fname
+				}
+			}
+		}
+	}
+	return false, ""
 }

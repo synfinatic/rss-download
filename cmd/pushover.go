@@ -36,7 +36,7 @@ const (
 	DISK_PATH          = "DiskPath"
 )
 
-func SendPush(konf *koanf.Koanf, entry RssFeedEntry, filter RssFeedFilter) error {
+func SendPush(konf *koanf.Koanf, entry RssFeedEntry, feed RssFeed) error {
 	appKey := konf.String(PUSHOVER_APP_KEY)
 	userKeys := konf.Strings(PUSHOVER_USER_KEYS)
 	diskPath := konf.String(DISK_PATH)
@@ -77,7 +77,7 @@ Torrent Size: %s
 <a href="https://www.synfin.net/transmission/web/">Highlandpark Transmission</a>
 
 <a href="https://brix.int.synfin.net/transmission/web/">Brix Transmission</a>
-	`, entry.FeedName, entry.Title, entry.TorrentSize, diskInfo, filter.UrlRewriter(entry.Url))
+	`, entry.FeedName, entry.Title, entry.TorrentSize, diskInfo, feed.UrlRewriter(entry.Url))
 
 	msgTitle := entry.Title
 	message := pushover.Message{
