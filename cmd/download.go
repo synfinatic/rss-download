@@ -27,36 +27,51 @@ import (
 )
 
 type DownloadCmd struct {
-	Feed   string `kong:"arg,required,help='Specify feed name to download'"`
-	Output string `kong:"optional,name='output',short='o',default='',help='Output file'"`
-	Append bool   `kong:"optiona,name='append',short='a',default=false,help='Append to existing output file'"`
+	Feed    string   `kong:"arg,required,help='Specify feed name to download'"`
+	Filters []string `kong:"arg,optional,help='Specify optional filter to use (default all)'"`
+	Output  string   `kong:"optional,name='output',short='o',default='',help='Output file'"`
+	Append  bool     `kong:"optiona,name='append',short='a',default=false,help='Append to existing output file'"`
 }
 
 func (cmd *DownloadCmd) Run(ctx *RunContext) error {
-	feed := fmt.Sprintf("feeds.%s", ctx.Cli.Download.Feed)
-	feedType := ctx.Konf.String(fmt.Sprintf("feeds.%s.FeedType", ctx.Cli.Download.Feed))
-	log.Debugf("FeedType: %s", feedType)
-
 	outputFile := fmt.Sprintf("%s.json", ctx.Cli.Download.Feed)
 	if ctx.Cli.Download.Output != "" {
 		outputFile = ctx.Cli.Download.Output
 	}
 
-	filter, ok := RSS_FEED_TYPES[feedType]
+	// get our feed
+	feedType := ctx.Konf.String(fmt.Sprintf("feeds.%s.FeedType", ctx.Cli.Download.Feed))
+	feed, ok := RSS_FEED_TYPES[feedType]
 	if !ok {
 		return fmt.Errorf("Unknown feed type: %s", feedType)
 	}
+	feed.Reset()
 
-	err := ctx.Konf.Unmarshal(feed, filter)
+	feedName := fmt.Sprintf("feeds.%s", ctx.Cli.Download.Feed)
+	err := ctx.Konf.Unmarshal(feedName, feed)
 	if err != nil {
 		return err
 	}
-	log.Debugf("Filter: %v", filter)
+	log.Debugf("Feed: %v", feed)
 
-	entries, err := DownloadFeed(ctx.Cli.Download.Feed, RssFeedFilter(filter))
+	// which filters to enable
+	filters := []string{}
+	if len(ctx.Cli.Download.Filters) != 0 {
+		for _, f := range ctx.Cli.Download.Filters {
+			filters = append(filters, f)
+		}
+	} else {
+		for filter, _ := range feed.GetFilters() {
+			filters = append(filters, filter)
+		}
+	}
+
+	newEntries, err := DownloadFeed(ctx.Cli.Download.Feed, feed)
 	if err != nil {
 		return err
 	}
+
+	filteredEntries, err := FilterEntries(newEntries, feed, filters)
 
 	oldEntries := []RssFeedEntry{}
 	if ctx.Cli.Download.Append {
@@ -66,21 +81,11 @@ func (cmd *DownloadCmd) Run(ctx *RunContext) error {
 		}
 	}
 
-	for _, entry := range entries {
+	for _, entry := range filteredEntries {
 		if !RssFeedEntryExits(oldEntries, entry) {
 			oldEntries = append(oldEntries, entry)
 		}
 	}
 	fileBytes, _ := json.MarshalIndent(oldEntries, "", "  ")
 	return ioutil.WriteFile(outputFile, fileBytes, 0644)
-}
-
-// returns true or false if the entry is already in the entries
-func RssFeedEntryExits(entries []RssFeedEntry, entry RssFeedEntry) bool {
-	for _, e := range entries {
-		if e.Title == entry.Title {
-			return true
-		}
-	}
-	return false
 }

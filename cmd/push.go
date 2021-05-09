@@ -27,11 +27,80 @@ import (
 )
 
 type PushCmd struct {
-	Feed  string `kong:"arg,required,help='Specify feed name to download'"`
-	Cache string `kong:"optional,name='cache',short='c',default='rss-download.json',help='Cache file'"`
+	Feed    string   `kong:"arg,optional,help='Specify feed name to download'"`
+	Filters []string `kong:"arg,optional,help='Specify optional filters to use (default all)'"`
+	Cache   string   `kong:"optional,name='cache',short='c',default='rss-download.json',help='Cache file'"`
 }
 
 func (cmd *PushCmd) Run(ctx *RunContext) error {
+	allFeeds := ctx.Konf.MapKeys("feeds")
+	feeds := []string{}
+
+	if ctx.Cli.Push.Feed != "" {
+		for _, feed := range allFeeds {
+			if feed == ctx.Cli.Push.Feed {
+				feeds = append(feeds, ctx.Cli.Push.Feed)
+				break
+			}
+		}
+		if len(feeds) == 0 {
+			return fmt.Errorf("Invalid feed name: %s", ctx.Cli.Push.Feed)
+		}
+	} else {
+		feeds = allFeeds
+	}
+	log.Debugf("feeds = %v", feeds)
+
+	for _, feed := range feeds {
+		err := push(ctx, feed)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func push(ctx *RunContext, feedName string) error {
+	log.Infof("Processing: %s", feedName)
+	// get our feed
+	feedType := ctx.Konf.String(fmt.Sprintf("feeds.%s.FeedType", feedName))
+	if feedType == "" {
+		return fmt.Errorf("Missing FeedType for %s", feedName)
+	}
+	feed, ok := RSS_FEED_TYPES[feedType]
+	if !ok {
+		return fmt.Errorf("Unknown feed type: %s", feedType)
+	}
+	feed.Reset()
+
+	err := ctx.Konf.Unmarshal(fmt.Sprintf("feeds.%s", feedName), feed)
+	if err != nil {
+		return err
+	}
+	log.Debugf("Feed: %v", feed)
+
+	// which filters to enable
+	filters := []string{}
+	if len(ctx.Cli.Push.Filters) != 0 {
+		for _, f := range ctx.Cli.Push.Filters {
+			filters = append(filters, f)
+		}
+	} else {
+		for filter, _ := range feed.GetFilters() {
+			filters = append(filters, filter)
+		}
+	}
+
+	newEntries, err := DownloadFeed(feedName, RssFeed(feed))
+	if err != nil {
+		return err
+	}
+
+	filteredEntries, err := FilterEntries(newEntries, feed, filters)
+	if err != nil {
+		return err
+	}
+
 	// load our cache
 	cacheEntries := []RssFeedEntry{}
 	cacheBytes, err := ioutil.ReadFile(ctx.Cli.Push.Cache)
@@ -41,33 +110,17 @@ func (cmd *PushCmd) Run(ctx *RunContext) error {
 		json.Unmarshal(cacheBytes, &cacheEntries)
 	}
 
-	// get our filter
-	feedType := ctx.Konf.String(fmt.Sprintf("feeds.%s.FeedType", ctx.Cli.Push.Feed))
-	filter, ok := RSS_FEED_TYPES[feedType]
-	if !ok {
-		return fmt.Errorf("Unknown feed type: %s", feedType)
-	}
-
-	feed := fmt.Sprintf("feeds.%s", ctx.Cli.Push.Feed)
-	err = ctx.Konf.Unmarshal(feed, filter)
-	if err != nil {
-		return err
-	}
-	log.Debugf("Filter: %v", filter)
-	newEntries, err := DownloadFeed(ctx.Cli.Push.Feed, RssFeedFilter(filter))
-	if err != nil {
-		return err
-	}
-
-	for _, entry := range newEntries {
+	for _, entry := range filteredEntries {
 		if !RssFeedEntryExits(cacheEntries, entry) {
 			log.Debugf("New entry: %s", entry.Title)
-			err := SendPush(ctx.Konf, entry, filter)
+			err := SendPush(ctx.Konf, entry, feed)
 			if err != nil {
 				log.WithError(err).Errorf("Unable to Push notification for %s", entry.Title)
 			} else {
 				cacheEntries = append(cacheEntries, entry)
 			}
+		} else {
+			log.Debugf("Entry %s already exists in cache", entry.Title)
 		}
 	}
 

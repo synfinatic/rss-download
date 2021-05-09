@@ -60,19 +60,20 @@ func (cmd *ListCmd) ListFeed(ctx *RunContext) error {
 	feedType := ctx.Konf.String(fmt.Sprintf("feeds.%s.FeedType", ctx.Cli.List.Feed))
 	log.Debugf("FeedType: %s", feedType)
 
-	filter, ok := RSS_FEED_TYPES[feedType]
+	feed, ok := RSS_FEED_TYPES[feedType]
 	if !ok {
 		return fmt.Errorf("Unknown feed type: %s", feedType)
 	}
+	feed.Reset()
 
 	feedPath := fmt.Sprintf("feeds.%s", ctx.Cli.List.Feed)
-	err := ctx.Konf.Unmarshal(feedPath, filter)
+	err := ctx.Konf.Unmarshal(feedPath, feed)
 	if err != nil {
 		return err
 	}
-	log.Debugf("Filter: %v", filter)
+	log.Debugf("Feed: %v", feed)
 
-	entries, err := DownloadFeed(ctx.Cli.List.Feed, RssFeedFilter(filter))
+	entries, err := DownloadFeed(ctx.Cli.List.Feed, RssFeed(feed))
 	if err != nil {
 		return err
 	}
