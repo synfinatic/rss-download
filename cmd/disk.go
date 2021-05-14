@@ -62,6 +62,9 @@ func GetDirectorySize(path string, info os.FileInfo) (uint64, error) {
 	}
 
 	for _, file := range files {
+		if file.Name() == "lost+found" {
+			continue
+		}
 		if file.IsDir() {
 			subdir := fmt.Sprintf("%s/%s", path, file.Name())
 			s, err := GetDirectorySize(subdir, file)
