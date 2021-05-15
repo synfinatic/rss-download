@@ -34,6 +34,7 @@ const (
 // Impliment the RFM feed filter
 type RfmFeed struct {
 	FeedType         string
+	Order            int                   `koanf:"Order"`
 	BaseUrl          string                `koanf:"BaseUrl"`
 	Filters          *map[string]RssFilter `koanf:"Filters"`
 	Results          int64                 `koanf:"Results" param:"l"`
@@ -102,6 +103,10 @@ func (rfm *RfmFeed) GetPublishFormat() string {
 
 func (rfm *RfmFeed) GetFeedType() string {
 	return rfm.FeedType
+}
+
+func (rfm RfmFeed) GetOrder() int {
+	return rfm.Order
 }
 
 func (rfm RfmFeed) GetParam(fieldName string) (string, error) {

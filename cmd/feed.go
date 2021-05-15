@@ -89,6 +89,7 @@ func (rf *RssFilter) HasCategory(category string) bool {
 type RssFeed interface {
 	Reset()
 	GetFeedType() string
+	GetOrder() int
 	GetParam(string) (string, error)
 	GenerateUrl() string
 	GetPublishFormat() string
