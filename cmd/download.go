@@ -40,14 +40,14 @@ func (cmd *DownloadCmd) Run(ctx *RunContext) error {
 	}
 
 	// get our feed
-	feedType := ctx.Konf.String(fmt.Sprintf("feeds.%s.FeedType", ctx.Cli.Download.Feed))
+	feedType := ctx.Konf.String(fmt.Sprintf("Feeds.%s.FeedType", ctx.Cli.Download.Feed))
 	feed, ok := RSS_FEED_TYPES[feedType]
 	if !ok {
 		return fmt.Errorf("Unknown feed type: %s", feedType)
 	}
 	feed.Reset()
 
-	feedName := fmt.Sprintf("feeds.%s", ctx.Cli.Download.Feed)
+	feedName := fmt.Sprintf("Feeds.%s", ctx.Cli.Download.Feed)
 	err := ctx.Konf.Unmarshal(feedName, feed)
 	if err != nil {
 		return err

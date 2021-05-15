@@ -50,6 +50,7 @@ type RfmFeed struct {
 func (rfm *RfmFeed) Reset() {
 	rfm.FeedType = "RFM"
 	rfm.BaseUrl = ""
+	rfm.Order = 0
 	rfm.Filters = &map[string]RssFilter{}
 	rfm.Results = 0
 	rfm.Category = 0

@@ -38,26 +38,13 @@ func (cmd *ListCmd) Run(ctx *RunContext) error {
 
 // Just list the feed config
 func (cmd *ListCmd) ListAllFeeds(ctx *RunContext) error {
-	feeds := ctx.Konf.MapKeys("feeds")
-	total := len(feeds)
-	for i, feed := range feeds {
-		fmt.Printf("%s:\n", feed)
-		thisFeed := fmt.Sprintf("feeds.%s", feed)
-		for k, v := range ctx.Konf.StringMap(thisFeed) {
-			fmt.Printf("\t%s: %s\n", k, v)
-		}
-		if i+1 < total {
-			fmt.Printf("\n")
-		}
-	}
-
+	ctx.Konf.Print()
 	return nil
-
 }
 
 // List the contents of the given feed
 func (cmd *ListCmd) ListFeed(ctx *RunContext) error {
-	feedType := ctx.Konf.String(fmt.Sprintf("feeds.%s.FeedType", ctx.Cli.List.Feed))
+	feedType := ctx.Konf.String(fmt.Sprintf("Feeds.%s.FeedType", ctx.Cli.List.Feed))
 	log.Debugf("FeedType: %s", feedType)
 
 	feed, ok := RSS_FEED_TYPES[feedType]
@@ -66,7 +53,7 @@ func (cmd *ListCmd) ListFeed(ctx *RunContext) error {
 	}
 	feed.Reset()
 
-	feedPath := fmt.Sprintf("feeds.%s", ctx.Cli.List.Feed)
+	feedPath := fmt.Sprintf("Feeds.%s", ctx.Cli.List.Feed)
 	err := ctx.Konf.Unmarshal(feedPath, feed)
 	if err != nil {
 		return err

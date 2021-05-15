@@ -29,11 +29,11 @@ import (
 type PushCmd struct {
 	Feed    string   `kong:"arg,optional,help='Specify feed name to download'"`
 	Filters []string `kong:"arg,optional,help='Specify optional filters to use (default all)'"`
-	Cache   string   `kong:"optional,name='cache',short='c',default='rss-download.json',help='Cache file'"`
+	Cache   string   `kong:"optional,name='cache',short='c',default='${CACHE_FILE}',help='Cache file'"`
 }
 
 func (cmd *PushCmd) Run(ctx *RunContext) error {
-	allFeeds := ctx.Konf.MapKeys("feeds")
+	allFeeds := ctx.Konf.MapKeys("Feeds")
 	feeds := []string{}
 
 	if ctx.Cli.Push.Feed != "" {
@@ -51,7 +51,7 @@ func (cmd *PushCmd) Run(ctx *RunContext) error {
 		feedCnt := len(allFeeds)
 		for i := 1; i <= feedCnt; i++ {
 			for _, feed := range allFeeds {
-				order := ctx.Konf.Int(fmt.Sprintf("feeds.%s.Order", feed))
+				order := ctx.Konf.Int(fmt.Sprintf("Feeds.%s.Order", feed))
 				if order == i {
 					feeds = append(feeds, feed)
 				}
@@ -72,7 +72,7 @@ func (cmd *PushCmd) Run(ctx *RunContext) error {
 			}
 		}
 	}
-	log.Debugf("feeds = %v", feeds)
+	log.Debugf("Feeds = %v", feeds)
 
 	for _, feed := range feeds {
 		err := push(ctx, feed)
@@ -86,7 +86,7 @@ func (cmd *PushCmd) Run(ctx *RunContext) error {
 func push(ctx *RunContext, feedName string) error {
 	log.Infof("Processing: %s", feedName)
 	// get our feed
-	feedType := ctx.Konf.String(fmt.Sprintf("feeds.%s.FeedType", feedName))
+	feedType := ctx.Konf.String(fmt.Sprintf("Feeds.%s.FeedType", feedName))
 	if feedType == "" {
 		return fmt.Errorf("Missing FeedType for %s", feedName)
 	}
@@ -96,7 +96,7 @@ func push(ctx *RunContext, feedName string) error {
 	}
 	feed.Reset()
 
-	err := ctx.Konf.Unmarshal(fmt.Sprintf("feeds.%s", feedName), feed)
+	err := ctx.Konf.Unmarshal(fmt.Sprintf("Feeds.%s", feedName), feed)
 	if err != nil {
 		return err
 	}
@@ -126,9 +126,10 @@ func push(ctx *RunContext, feedName string) error {
 
 	// load our cache
 	cacheEntries := []RssFeedEntry{}
-	cacheBytes, err := ioutil.ReadFile(ctx.Cli.Push.Cache)
+	cacheFile := GetPath(ctx.Cli.Push.Cache)
+	cacheBytes, err := ioutil.ReadFile(cacheFile)
 	if err != nil {
-		log.Warnf("Creating new cache file.")
+		log.Warnf("Creating new cache file: %s", cacheFile)
 	} else {
 		json.Unmarshal(cacheBytes, &cacheEntries)
 	}
@@ -148,5 +149,5 @@ func push(ctx *RunContext, feedName string) error {
 	}
 
 	cacheBytes, _ = json.MarshalIndent(cacheEntries, "", "  ")
-	return ioutil.WriteFile(ctx.Cli.Push.Cache, cacheBytes, 0644)
+	return ioutil.WriteFile(cacheFile, cacheBytes, 0644)
 }
