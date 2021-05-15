@@ -47,7 +47,30 @@ func (cmd *PushCmd) Run(ctx *RunContext) error {
 			return fmt.Errorf("Invalid feed name: %s", ctx.Cli.Push.Feed)
 		}
 	} else {
-		feeds = allFeeds
+		// add our feeds in the specified order
+		feedCnt := len(allFeeds)
+		for i := 1; i <= feedCnt; i++ {
+			for _, feed := range allFeeds {
+				order := ctx.Konf.Int(fmt.Sprintf("feeds.%s.Order", feed))
+				if order == i {
+					feeds = append(feeds, feed)
+				}
+			}
+		}
+
+		// look for any feeds which don't have an order
+		for _, feed := range allFeeds {
+			hasOrder := false
+			for _, x := range feeds {
+				if feed == x {
+					hasOrder = true
+					break
+				}
+			}
+			if !hasOrder {
+				feeds = append(feeds, feed)
+			}
+		}
 	}
 	log.Debugf("feeds = %v", feeds)
 
