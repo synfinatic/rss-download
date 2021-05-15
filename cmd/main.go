@@ -21,6 +21,7 @@ package main
 import (
 	"fmt"
 	"os"
+	"strings"
 
 	"github.com/alecthomas/kong"
 	"github.com/knadh/koanf"
@@ -36,6 +37,11 @@ var Tag = "NO-TAG"
 var CommitID = "unknown"
 var Delta = ""
 
+const (
+	CONFIG_FILE = "~/.rssdownload/config.yaml"
+	CACHE_FILE  = "~/.rssdownload/cache.json"
+)
+
 type RunContext struct {
 	Ctx  *kong.Context
 	Cli  *CLI
@@ -47,7 +53,7 @@ type CLI struct {
 	LogLevel string `kong:"optional,short='L',name='loglevel',default='info',enum='error,warn,info,debug',help='Logging level [error|warn|info|debug]'"`
 	Lines    bool   `kong:"optional,name='lines',default=false,help='Include line numbers in logs'"`
 	Log      string `kong:"optional,name='log',default='stderr',help='Output log file'"`
-	Config   string `kong:"required,name='config',default='rssdownload.yaml',help='Config file'"`
+	Config   string `kong:"optional,name='config',default='${CONFIG_FILE}',help='Config file'"`
 
 	// sub commands
 	Version  VersionCmd  `kong:"cmd,help='Print version and exit'"`
@@ -57,9 +63,13 @@ type CLI struct {
 }
 
 func main() {
-	k := kong.Description("RSS Download Manager")
+	d := kong.Description("RSS Download Manager")
+	vars := kong.Vars{
+		"CONFIG_FILE": CONFIG_FILE,
+		"CACHE_FILE":  CACHE_FILE,
+	}
 	cli := CLI{}
-	ctx := kong.Parse(&cli, k)
+	ctx := kong.Parse(&cli, d, vars)
 
 	switch cli.LogLevel {
 	case "debug":
@@ -93,15 +103,15 @@ func main() {
 		Konf: koanf.New("."),
 	}
 
-	if err := run_ctx.Konf.Load(file.Provider(cli.Config), yaml.Parser()); err != nil {
-		log.WithError(err).Fatalf("Unable to open config file")
+	config := GetPath(cli.Config)
+	if err := run_ctx.Konf.Load(file.Provider(config), yaml.Parser()); err != nil {
+		log.WithError(err).Fatalf("Unable to open config file: %s", config)
 	}
 
 	err := ctx.Run(&run_ctx)
 	if err != nil {
 		log.Panicf("Error running command: %s", err.Error())
 	}
-
 }
 
 // Version Command
@@ -116,4 +126,9 @@ func (cmd *VersionCmd) Run(ctx *RunContext) error {
 	fmt.Printf("RSS Download Manager v%s -- Copyright 2021 Aaron Turner\n", Version)
 	fmt.Printf("%s (%s)%s built at %s\n", CommitID, Tag, delta, Buildinfos)
 	return nil
+}
+
+// Returns the config file path.
+func GetPath(path string) string {
+	return strings.Replace(path, "~", os.Getenv("HOME"), 1)
 }
