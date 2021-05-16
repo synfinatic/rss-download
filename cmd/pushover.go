@@ -102,3 +102,51 @@ Torrent Size: %s
 	}
 	return nil
 }
+
+func SendPushError(konf *koanf.Koanf, err error) error {
+	appKey := konf.String(PUSHOVER_APP_KEY)
+	userKeys := konf.Strings(PUSHOVER_USER_KEYS)
+
+	msgText := fmt.Sprintf(`
+Torrent Error:
+
+%s
+	`, err)
+
+	// app and user keys are required
+	if appKey == "" {
+		return fmt.Errorf("Missing `%s` in config", PUSHOVER_APP_KEY)
+	}
+	if len(userKeys) == 0 {
+		return fmt.Errorf("Missing `%s` in config", PUSHOVER_USER_KEYS)
+	}
+
+	// if device names are given, use that, otherwise send to all devices
+	deviceNamesList := konf.Strings(PUSHOVER_DEVICES)
+	deviceNames := ""
+	if len(deviceNamesList) > 0 {
+		deviceNames = strings.Join(deviceNamesList, ",")
+	}
+
+	app := pushover.New(appKey)
+	message := pushover.Message{
+		HTML:        false,
+		Message:     msgText,
+		Title:       "RSS Feed Error",
+		Priority:    PUSHOVER_PRIORITY,
+		Timestamp:   time.Now().Unix(),
+		Retry:       60 * time.Second,
+		Expire:      time.Hour,
+		DeviceName:  deviceNames,
+		CallbackURL: "",
+		Sound:       pushover.SoundSpaceAlarm,
+	}
+
+	for _, user := range userKeys {
+		_, err := app.SendMessage(&message, pushover.NewRecipient(user))
+		if err != nil {
+			log.WithError(err).Errorf("Unable to send message to %s: %s", user, err)
+		}
+	}
+	return nil
+}
