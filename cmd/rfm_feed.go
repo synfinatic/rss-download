@@ -35,6 +35,8 @@ const (
 type RfmFeed struct {
 	FeedType         string
 	Order            int                   `koanf:"Order"`
+	AutoDownload     bool                  `koanf:"AutoDownload"`
+	DownloadPath     string                `koanf:"DownloadPath"`
 	BaseUrl          string                `koanf:"BaseUrl"`
 	Filters          *map[string]RssFilter `koanf:"Filters"`
 	Results          int64                 `koanf:"Results" param:"l"`
@@ -49,6 +51,8 @@ type RfmFeed struct {
 // hack around RSS_FEED_TYPES causing stale data to be left around
 func (rfm *RfmFeed) Reset() {
 	rfm.FeedType = "RFM"
+	rfm.AutoDownload = false
+	rfm.DownloadPath = ""
 	rfm.BaseUrl = ""
 	rfm.Order = 0
 	rfm.Filters = &map[string]RssFilter{}
@@ -63,6 +67,10 @@ func (rfm *RfmFeed) Reset() {
 
 func (rfm *RfmFeed) GetFilters() map[string]RssFilter {
 	return *rfm.Filters
+}
+
+func (rfm *RfmFeed) DownloadFilename(basePath string, entry RssFeedEntry) string {
+	return basePath + fmt.Sprintf("/%s.torrent", entry.Title)
 }
 
 func (rfm *RfmFeed) GenerateUrl() string {
@@ -110,6 +118,14 @@ func (rfm RfmFeed) GetOrder() int {
 	return rfm.Order
 }
 
+func (rfm RfmFeed) GetDownloadPath() string {
+	return rfm.DownloadPath
+}
+
+func (rfm RfmFeed) GetAutoDownload() bool {
+	return rfm.AutoDownload
+}
+
 func (rfm RfmFeed) GetParam(fieldName string) (string, error) {
 	v := reflect.ValueOf(rfm)
 	return GetParamTag(v, fieldName)
@@ -125,7 +141,7 @@ func (rfm *RfmFeed) UrlRewriter(url string) string {
 
 // Returns if the given entry is a match and if so, which Filter
 func (rf *RfmFeed) Match(entry RssFeedEntry) (bool, string) {
-	log.Debugf("Looking for match of %s", entry.Title)
+	log.Debugf("Looking for match of %s / %s", entry.Title, strings.Join(entry.Categories, ","))
 	for fname, filter := range *rf.Filters {
 		for _, c := range entry.Categories {
 			if filter.HasCategory(c) {

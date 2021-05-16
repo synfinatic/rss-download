@@ -90,6 +90,9 @@ type RssFeed interface {
 	Reset()
 	GetFeedType() string
 	GetOrder() int
+	GetAutoDownload() bool
+	GetDownloadPath() string
+	DownloadFilename(string, RssFeedEntry) string
 	GetParam(string) (string, error)
 	GenerateUrl() string
 	GetPublishFormat() string
