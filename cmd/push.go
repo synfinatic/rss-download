@@ -21,7 +21,9 @@ package main
 import (
 	"encoding/json"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 
 	log "github.com/sirupsen/logrus"
 )
@@ -137,9 +139,14 @@ func push(ctx *RunContext, feedName string) error {
 	for _, entry := range filteredEntries {
 		if !RssFeedEntryExits(cacheEntries, entry) {
 			log.Debugf("New entry: %s", entry.Title)
-			err := SendPush(ctx.Konf, entry, feed)
+			var err error = nil
+			if feed.GetAutoDownload() {
+				err = DownloadUrl(entry, feed)
+			} else {
+				err = SendPush(ctx.Konf, entry, feed)
+			}
 			if err != nil {
-				log.WithError(err).Errorf("Unable to Push notification for %s", entry.Title)
+				log.WithError(err).Errorf("Unable to Download/Push notification for %s", entry.Title)
 			} else {
 				cacheEntries = append(cacheEntries, entry)
 			}
@@ -150,4 +157,19 @@ func push(ctx *RunContext, feedName string) error {
 
 	cacheBytes, _ = json.MarshalIndent(cacheEntries, "", "  ")
 	return ioutil.WriteFile(cacheFile, cacheBytes, 0644)
+}
+
+// Download an entry
+func DownloadUrl(entry RssFeedEntry, feed RssFeed) error {
+	path := feed.DownloadFilename(feed.GetDownloadPath(), entry)
+	log.Debugf("Downloading %s", path)
+	resp, err := http.Get(entry.TorrentUrl)
+	if err != nil {
+		return err
+	}
+	torrent, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return err
+	}
+	return ioutil.WriteFile(path, []byte(torrent), 0644)
 }
