@@ -19,7 +19,6 @@ package main
  */
 
 import (
-	"encoding/json"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -128,17 +127,13 @@ func push(ctx *RunContext, feedName string) error {
 	}
 
 	// load our cache
-	cacheEntries := []RssFeedEntry{}
-	cacheFile := GetPath(ctx.Cli.Push.Cache)
-	cacheBytes, err := ioutil.ReadFile(cacheFile)
+	cache, err := OpenCache(ctx.Cli.Push.Cache)
 	if err != nil {
-		log.Warnf("Creating new cache file: %s", cacheFile)
-	} else {
-		json.Unmarshal(cacheBytes, &cacheEntries)
+		log.WithError(err).Panicf("Unable to open cache: %s", ctx.Cli.Push.Cache)
 	}
 
 	for _, entry := range filteredEntries {
-		if !RssFeedEntryExits(cacheEntries, entry) {
+		if !RssFeedEntryExits(cache.Entries, entry) {
 			log.Debugf("New entry: %s", entry.Title)
 			var err error = nil
 			if feed.GetAutoDownload() || entry.AutoDownload {
@@ -148,17 +143,18 @@ func push(ctx *RunContext, feedName string) error {
 			}
 			if err != nil {
 				log.WithError(err).Errorf("Unable to Download/Push notification for %s", entry.Title)
-				SendPushError(ctx.Konf, err)
+				if cache.CheckNewError(entry.Title) {
+					SendPushError(ctx.Konf, err)
+					cache.AddError(entry.Title)
+				}
 			} else {
-				cacheEntries = append(cacheEntries, entry)
+				cache.Entries = append(cache.Entries, entry)
 			}
 		} else {
 			log.Debugf("Entry %s already exists in cache", entry.Title)
 		}
 	}
-
-	cacheBytes, _ = json.MarshalIndent(cacheEntries, "", "  ")
-	return ioutil.WriteFile(cacheFile, cacheBytes, 0644)
+	return cache.SaveCache()
 }
 
 // Download an entry
