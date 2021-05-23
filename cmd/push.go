@@ -140,7 +140,7 @@ func push(ctx *RunContext, feedName string) error {
 		if !RssFeedEntryExits(cacheEntries, entry) {
 			log.Debugf("New entry: %s", entry.Title)
 			var err error = nil
-			if feed.GetAutoDownload() {
+			if feed.GetAutoDownload() || entry.AutoDownload {
 				err = DownloadUrl(entry, feed)
 			} else {
 				err = SendPush(ctx.Konf, entry, feed)

@@ -40,10 +40,11 @@ var RSS_FEED_TYPES = map[string]RssFeed{
 
 // generic RSS entry filter
 type RssFilter struct {
-	Search     []string `koanf:"Search"`     // regexps
-	Categories []string `koanf:"Categories"` // any valid category
-	compiled   bool
-	match      []*regexp.Regexp
+	Search       []string `koanf:"Search"`     // regexps
+	Categories   []string `koanf:"Categories"` // any valid category
+	compiled     bool
+	match        []*regexp.Regexp
+	AutoDownload bool `koanf:"AutoDownload"`
 }
 
 // Does the RssFilter have a search regexp which matches the check string?
@@ -122,6 +123,7 @@ type RssFeedEntry struct {
 	TorrentBytes      uint64    `json:"TorrentBytes"`
 	TorrentSize       string    `json:"TorrentSize"`
 	TorrentCategories []string  `json:"TorrentCategories"`
+	AutoDownload      bool
 }
 
 // returns an entry as a pretty string
@@ -213,6 +215,9 @@ func FilterEntries(entries []RssFeedEntry, feed RssFeed, filters []string) ([]Rs
 			for _, filterName := range filters {
 				// does the hit match one of our specified filters?
 				if filter == filterName {
+					// set if this entry should be auto downloaded
+					filters := feed.GetFilters()
+					entry.AutoDownload = filters[filter].AutoDownload
 					retEntries = append(retEntries, entry)
 				}
 			}
