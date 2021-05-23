@@ -90,7 +90,7 @@ func main() {
 	if cli.Log == "stderr" {
 		log.SetOutput(os.Stderr)
 	} else {
-		file, err := os.OpenFile(cli.Log, os.O_APPEND|os.O_CREATE, 0644)
+		file, err := os.OpenFile(cli.Log, os.O_APPEND|os.O_WRONLY|os.O_CREATE, 0644)
 		if err != nil {
 			log.WithError(err).Fatalf("Unable to open log file: %s", cli.Log)
 		}
