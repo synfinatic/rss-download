@@ -25,6 +25,7 @@ import (
 	"io/ioutil"
 	"net/http"
 
+	"github.com/knadh/koanf"
 	log "github.com/sirupsen/logrus"
 )
 
@@ -141,12 +142,13 @@ func push(ctx *RunContext, feedName string) error {
 			log.Debugf("New entry: %s", entry.Title)
 			var err error = nil
 			if feed.GetAutoDownload() || entry.AutoDownload {
-				err = DownloadUrl(entry, feed)
+				err = DownloadUrl(ctx.Konf, entry, feed)
 			} else {
 				err = SendPush(ctx.Konf, entry, feed)
 			}
 			if err != nil {
 				log.WithError(err).Errorf("Unable to Download/Push notification for %s", entry.Title)
+				SendPushError(ctx.Konf, err)
 			} else {
 				cacheEntries = append(cacheEntries, entry)
 			}
@@ -160,16 +162,25 @@ func push(ctx *RunContext, feedName string) error {
 }
 
 // Download an entry
-func DownloadUrl(entry RssFeedEntry, feed RssFeed) error {
+func DownloadUrl(konf *koanf.Koanf, entry RssFeedEntry, feed RssFeed) error {
+	disk := DiskUsage(konf.String(DISK_PATH))
+	if disk.Free < entry.TorrentBytes {
+		return fmt.Errorf("Not enough free space, unable to download %s", entry.Title)
+	}
+
 	path := feed.DownloadFilename(feed.GetDownloadPath(), entry)
 	log.Debugf("Downloading %s", path)
 	resp, err := http.Get(entry.TorrentUrl)
 	if err != nil {
-		return err
+		return fmt.Errorf("Unable to download %s: %s", entry.Title, err)
 	}
 	torrent, err := io.ReadAll(resp.Body)
 	if err != nil {
-		return err
+		return fmt.Errorf("Unable to read: %s: %s", entry.Title, err)
 	}
-	return ioutil.WriteFile(path, []byte(torrent), 0644)
+	err = ioutil.WriteFile(path, []byte(torrent), 0644)
+	if err != nil {
+		return fmt.Errorf("Unable to write %s: %s", path, err)
+	}
+	return nil
 }
