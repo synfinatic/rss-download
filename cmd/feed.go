@@ -41,9 +41,11 @@ var RSS_FEED_TYPES = map[string]RssFeed{
 // generic RSS entry filter
 type RssFilter struct {
 	Search       []string `koanf:"Search"`     // regexps
+	Exclude      []string `koanf:"Exclude"`    // regexps
 	Categories   []string `koanf:"Categories"` // any valid category
 	compiled     bool
 	match        []*regexp.Regexp
+	exclude      []*regexp.Regexp
 	AutoDownload bool `koanf:"AutoDownload"`
 }
 
@@ -53,15 +55,26 @@ func (rf *RssFilter) Match(check string) bool {
 		for i, search := range rf.Search {
 			r, err := regexp.Compile(search)
 			if err != nil {
-				log.WithError(err).Errorf("Unable to compile regexp #%d: %s", i, search)
+				log.WithError(err).Errorf("Unable to compile search regexp #%d: %s", i, search)
 				rf.match = append(rf.match, nil)
 			} else {
 				rf.match = append(rf.match, r)
 			}
 		}
+		for i, search := range rf.Exclude {
+			r, err := regexp.Compile(search)
+			if err != nil {
+				log.WithError(err).Errorf("Unable to compile exclude regexp #%d: %s", i, search)
+				rf.exclude = append(rf.match, nil)
+			} else {
+				rf.exclude = append(rf.match, r)
+			}
+		}
 		rf.compiled = true
 	}
 
+	// first look for the matches
+	ret := false
 	for i, match := range rf.match {
 		if match == nil {
 			continue
@@ -70,10 +83,25 @@ func (rf *RssFilter) Match(check string) bool {
 		match := match.Find([]byte(check))
 		if match != nil {
 			log.Debugf("Matched %s => %s", rf.Search[i], check)
-			return true // match
+			ret = true // match
+			break
 		}
 	}
-	return false // no match
+
+	// then ignore any excludes
+	for i, match := range rf.exclude {
+		if match == nil {
+			continue
+		}
+		// use compiled
+		match := match.Find([]byte(check))
+		if match != nil {
+			log.Debugf("Exclude %s => %s", rf.Exclude[i], check)
+			ret = false // match
+			break
+		}
+	}
+	return ret
 }
 
 // Does the RssFilter have the given category?
