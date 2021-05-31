@@ -50,7 +50,10 @@ func SendPush(konf *koanf.Koanf, entry RssFeedEntry, feed RssFeed) error {
 	}
 	diskInfo := ""
 	if diskPath != "" {
-		disk := DiskUsage(diskPath)
+		disk, err := DiskUsage(konf, diskPath)
+		if err != nil {
+			return err
+		}
 		diskInfo = disk.DiskInfo(entry.TorrentBytes)
 	}
 

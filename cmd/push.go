@@ -159,7 +159,10 @@ func push(ctx *RunContext, feedName string) error {
 
 // Download an entry
 func DownloadUrl(konf *koanf.Koanf, entry RssFeedEntry, feed RssFeed) error {
-	disk := DiskUsage(konf.String(DISK_PATH))
+	disk, err := DiskUsage(konf, konf.String(DISK_PATH))
+	if err != nil {
+		return err
+	}
 	if disk.Free < entry.TorrentBytes {
 		return fmt.Errorf("Not enough free space, unable to download %s", entry.Title)
 	}
