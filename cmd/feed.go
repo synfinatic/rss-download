@@ -65,9 +65,9 @@ func (rf *RssFilter) Match(check string) bool {
 			r, err := regexp.Compile(search)
 			if err != nil {
 				log.WithError(err).Errorf("Unable to compile exclude regexp #%d: %s", i, search)
-				rf.exclude = append(rf.match, nil)
+				rf.exclude = append(rf.exclude, nil)
 			} else {
-				rf.exclude = append(rf.match, r)
+				rf.exclude = append(rf.exclude, r)
 			}
 		}
 		rf.compiled = true
