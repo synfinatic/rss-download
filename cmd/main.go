@@ -110,7 +110,7 @@ func main() {
 
 	err := ctx.Run(&run_ctx)
 	if err != nil {
-		log.Panicf("Error running command: %s", err.Error())
+		log.Fatalf("Error running command: %s", err.Error())
 	}
 }
 
