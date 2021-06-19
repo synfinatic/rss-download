@@ -60,6 +60,7 @@ type CLI struct {
 	Download DownloadCmd `kong:"cmd,help='Download the feeds'"`
 	List     ListCmd     `kong:"cmd,help='List the configured feeds'"`
 	Push     PushCmd     `kong:"cmd,help='Send push notifications for new entries'"`
+	Skip     SkipCmd     `kong:"cmd,help='Check feed data and skip entries'"`
 }
 
 func main() {
