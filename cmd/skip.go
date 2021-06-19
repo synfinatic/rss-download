@@ -20,34 +20,29 @@ package main
 
 import (
 	"fmt"
-	"io"
-	"io/ioutil"
-	"net/http"
 
-	"github.com/knadh/koanf"
 	log "github.com/sirupsen/logrus"
 )
 
-type PushCmd struct {
-	Feed    string   `kong:"arg,optional,help='Specify feed name to download'"`
+type SkipCmd struct {
+	Feed    string   `kong:"arg,optional,help='Specify feed name to skip entries for'"`
 	Filters []string `kong:"arg,optional,help='Specify optional filters to use (default all)'"`
 	Cache   string   `kong:"optional,name='cache',short='c',default='${CACHE_FILE}',help='Cache file'"`
-	DryRun  bool     `kong:"help='Do not notify or update cache'"`
 }
 
-func (cmd *PushCmd) Run(ctx *RunContext) error {
+func (cmd *SkipCmd) Run(ctx *RunContext) error {
 	allFeeds := ctx.Konf.MapKeys("Feeds")
 	feeds := []string{}
 
-	if ctx.Cli.Push.Feed != "" {
+	if ctx.Cli.Skip.Feed != "" {
 		for _, feed := range allFeeds {
-			if feed == ctx.Cli.Push.Feed {
-				feeds = append(feeds, ctx.Cli.Push.Feed)
+			if feed == ctx.Cli.Skip.Feed {
+				feeds = append(feeds, ctx.Cli.Skip.Feed)
 				break
 			}
 		}
 		if len(feeds) == 0 {
-			return fmt.Errorf("Invalid feed name: %s", ctx.Cli.Push.Feed)
+			return fmt.Errorf("Invalid feed name: %s", ctx.Cli.Skip.Feed)
 		}
 	} else {
 		// add our feeds in the specified order
@@ -78,7 +73,7 @@ func (cmd *PushCmd) Run(ctx *RunContext) error {
 	log.Debugf("Feeds = %v", feeds)
 
 	for _, feed := range feeds {
-		err := push(ctx, feed)
+		err := skip(ctx, feed)
 		if err != nil {
 			return err
 		}
@@ -86,7 +81,7 @@ func (cmd *PushCmd) Run(ctx *RunContext) error {
 	return nil
 }
 
-func push(ctx *RunContext, feedName string) error {
+func skip(ctx *RunContext, feedName string) error {
 	log.Infof("Processing: %s", feedName)
 	// get our feed
 	feedType := ctx.Konf.String(fmt.Sprintf("Feeds.%s.FeedType", feedName))
@@ -107,8 +102,8 @@ func push(ctx *RunContext, feedName string) error {
 
 	// which filters to enable
 	filters := []string{}
-	if len(ctx.Cli.Push.Filters) != 0 {
-		for _, f := range ctx.Cli.Push.Filters {
+	if len(ctx.Cli.Skip.Filters) != 0 {
+		for _, f := range ctx.Cli.Skip.Filters {
 			filters = append(filters, f)
 		}
 	} else {
@@ -128,65 +123,18 @@ func push(ctx *RunContext, feedName string) error {
 	}
 
 	// load our cache
-	cache, err := OpenCache(ctx.Cli.Push.Cache)
+	cache, err := OpenCache(ctx.Cli.Skip.Cache)
 	if err != nil {
-		log.WithError(err).Panicf("Unable to open cache: %s", ctx.Cli.Push.Cache)
+		log.WithError(err).Panicf("Unable to open cache: %s", ctx.Cli.Skip.Cache)
 	}
 
 	for _, entry := range filteredEntries {
 		if !RssFeedEntryExits(cache.Entries, entry) {
-			if ctx.Cli.Push.DryRun {
-				log.Infof("New entry: %s", entry.Title)
-				continue
-			} else {
-				log.Debugf("New entry: %s", entry.Title)
-			}
-
-			var err error = nil
-			if feed.GetAutoDownload() || entry.AutoDownload {
-				err = DownloadUrl(ctx.Konf, entry, feed)
-			} else {
-				err = SendPush(ctx.Konf, entry, feed)
-			}
-			if err != nil {
-				log.WithError(err).Errorf("Unable to Download/Push notification for %s", entry.Title)
-				if cache.CheckNewError(entry.Title) {
-					SendPushError(ctx.Konf, err)
-					cache.AddError(entry.Title)
-				}
-			} else {
-				cache.Entries = append(cache.Entries, entry)
-			}
+			log.Infof("Skipping entry: %s", entry.Title)
+			cache.Entries = append(cache.Entries, entry)
 		} else {
 			log.Debugf("Entry %s already exists in cache", entry.Title)
 		}
 	}
 	return cache.SaveCache()
-}
-
-// Download an entry
-func DownloadUrl(konf *koanf.Koanf, entry RssFeedEntry, feed RssFeed) error {
-	disk, err := DiskUsage(konf, konf.String(DISK_PATH))
-	if err != nil {
-		return err
-	}
-	if disk.Free < entry.TorrentBytes {
-		return fmt.Errorf("Not enough free space, unable to download %s", entry.Title)
-	}
-
-	path := feed.DownloadFilename(feed.GetDownloadPath(), entry)
-	log.Debugf("Downloading %s", path)
-	resp, err := http.Get(entry.TorrentUrl)
-	if err != nil {
-		return fmt.Errorf("Unable to download %s: %s", entry.Title, err)
-	}
-	torrent, err := io.ReadAll(resp.Body)
-	if err != nil {
-		return fmt.Errorf("Unable to read: %s: %s", entry.Title, err)
-	}
-	err = ioutil.WriteFile(path, []byte(torrent), 0644)
-	if err != nil {
-		return fmt.Errorf("Unable to write %s: %s", path, err)
-	}
-	return nil
 }
