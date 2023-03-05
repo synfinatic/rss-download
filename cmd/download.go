@@ -57,11 +57,9 @@ func (cmd *DownloadCmd) Run(ctx *RunContext) error {
 	// which filters to enable
 	filters := []string{}
 	if len(ctx.Cli.Download.Filters) != 0 {
-		for _, f := range ctx.Cli.Download.Filters {
-			filters = append(filters, f)
-		}
+		filters = append(filters, ctx.Cli.Download.Filters...)
 	} else {
-		for filter, _ := range feed.GetFilters() {
+		for filter := range feed.GetFilters() {
 			filters = append(filters, filter)
 		}
 	}
@@ -72,12 +70,17 @@ func (cmd *DownloadCmd) Run(ctx *RunContext) error {
 	}
 
 	filteredEntries, err := FilterEntries(newEntries, feed, filters)
+	if err != nil {
+		return err
+	}
 
 	oldEntries := []RssFeedEntry{}
 	if ctx.Cli.Download.Append {
 		fileBytes, err := ioutil.ReadFile(outputFile)
 		if err == nil {
-			json.Unmarshal(fileBytes, &oldEntries)
+			if err = json.Unmarshal(fileBytes, &oldEntries); err != nil {
+				return err
+			}
 		}
 	}
 

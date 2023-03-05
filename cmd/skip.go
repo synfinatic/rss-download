@@ -103,11 +103,9 @@ func skip(ctx *RunContext, feedName string) error {
 	// which filters to enable
 	filters := []string{}
 	if len(ctx.Cli.Skip.Filters) != 0 {
-		for _, f := range ctx.Cli.Skip.Filters {
-			filters = append(filters, f)
-		}
+		filters = append(filters, ctx.Cli.Skip.Filters...)
 	} else {
-		for filter, _ := range feed.GetFilters() {
+		for filter := range feed.GetFilters() {
 			filters = append(filters, filter)
 		}
 	}
