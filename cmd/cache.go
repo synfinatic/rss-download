@@ -46,7 +46,9 @@ func OpenCache(path string) (*CacheFile, error) {
 	if err != nil {
 		log.Warnf("Creating new cache file: %s", cacheFile)
 	} else {
-		json.Unmarshal(cacheBytes, &cache)
+		if err = json.Unmarshal(cacheBytes, &cache); err != nil {
+			return &cache, err
+		}
 	}
 	cache.filename = cacheFile
 	return &cache, nil
@@ -61,10 +63,7 @@ func (c *CacheFile) SaveCache() error {
 func (c *CacheFile) CheckNewError(entry string) bool {
 	expire, ok := c.Errors[entry]
 	if ok {
-		if expire < time.Now().Unix() {
-			return true
-		}
-		return false
+		return expire < time.Now().Unix()
 	}
 	return true
 }

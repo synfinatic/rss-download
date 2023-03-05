@@ -108,11 +108,9 @@ func push(ctx *RunContext, feedName string) error {
 	// which filters to enable
 	filters := []string{}
 	if len(ctx.Cli.Push.Filters) != 0 {
-		for _, f := range ctx.Cli.Push.Filters {
-			filters = append(filters, f)
-		}
+		filters = append(filters, ctx.Cli.Push.Filters...)
 	} else {
-		for filter, _ := range feed.GetFilters() {
+		for filter := range feed.GetFilters() {
 			filters = append(filters, filter)
 		}
 	}
@@ -142,7 +140,6 @@ func push(ctx *RunContext, feedName string) error {
 				log.Debugf("New entry: %s", entry.Title)
 			}
 
-			var err error = nil
 			if feed.GetAutoDownload() || entry.AutoDownload {
 				err = DownloadUrl(ctx.Konf, entry, feed)
 			} else {
@@ -151,7 +148,9 @@ func push(ctx *RunContext, feedName string) error {
 			if err != nil {
 				log.WithError(err).Errorf("Unable to Download/Push notification for %s", entry.Title)
 				if cache.CheckNewError(entry.Title) {
-					SendPushError(ctx.Konf, err)
+					if err = SendPushError(ctx.Konf, err); err != nil {
+						return err
+					}
 					cache.AddError(entry.Title)
 				}
 			} else {
