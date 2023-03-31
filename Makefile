@@ -50,8 +50,8 @@ release: build-release
 build-release: clean linux linux-arm32 linux-arm64 darwin ## Build all our release binaries
 
 .PHONY: run
-run: cmd/*.go  ## build and run cria using $PROGRAM_ARGS
-	go run cmd/*.go $(PROGRAM_ARGS)
+run: ./cmd/rss-tool/*.go  ## build and run cria using $PROGRAM_ARGS
+	go run ./cmd/rss-tool/... $(PROGRAM_ARGS)
 
 clean-all: clean ## clean _everything_
 
@@ -66,10 +66,10 @@ go-get:  ## Get our go modules
 
 .PHONY: build-race
 build-race: .prepare ## Build race detection binary
-	go build -race -ldflags='$(LDFLAGS)' -o $(OUTPUT_NAME) cmd/*.go
+	go build -race -ldflags='$(LDFLAGS)' -o $(OUTPUT_NAME) ./cmd/rss-tool/...
 
 debug: .prepare ## Run debug in dlv
-	dlv debug cmd/*.go
+	dlv debug ./cmd/rss-tool/...
 
 .PHONY: unittest
 unittest: ## Run go unit tests
@@ -94,11 +94,11 @@ $(DIST_DIR):
 
 .PHONY: fmt
 fmt: ## Format Go code
-	@go fmt cmd
+	@go fmt ./cmd
 
 .PHONY: test-fmt
 test-fmt: fmt ## Test to make sure code if formatted correctly
-	@if test `git diff cmd | wc -l` -gt 0; then \
+	@if test `git diff ./cmd | wc -l` -gt 0; then \
 	    echo "Code changes detected when running 'go fmt':" ; \
 	    git diff -Xfiles ; \
 	    exit -1 ; \
@@ -121,39 +121,39 @@ lint:  ## Run golangci-lint
 windows: $(WINDOWS_BIN)  ## Build 64bit Windows binary
 
 $(WINDOWS_BIN): $(wildcard */*.go) .prepare
-	GOARCH=amd64 GOOS=windows go build -ldflags='$(LDFLAGS)' -o $(WINDOWS_BIN) cmd/*.go
+	GOARCH=amd64 GOOS=windows go build -ldflags='$(LDFLAGS)' -o $(WINDOWS_BIN) ./cmd/rss-tool/...
 	@echo "Created: $(WINDOWS_BIN)"
 
 windows32: $(WINDOWS32_BIN)  ## Build 32bit Windows binary
 
 $(WINDOWS32_BIN): $(wildcard */*.go) .prepare
-	GOARCH=386 GOOS=windows go build -ldflags='$(LDFLAGS)' -o $(WINDOWS32_BIN) cmd/*.go
+	GOARCH=386 GOOS=windows go build -ldflags='$(LDFLAGS)' -o $(WINDOWS32_BIN) ./cmd/rss-tool/...
 	@echo "Created: $(WINDOWS32_BIN)"
 
 linux: $(LINUX_BIN)  ## Build Linux/x86_64 binary
 
 $(LINUX_BIN): $(wildcard */*.go) .prepare
-	GOARCH=amd64 GOOS=linux go build -ldflags='$(LDFLAGS)' -o $(LINUX_BIN) cmd/*.go
+	GOARCH=amd64 GOOS=linux go build -ldflags='$(LDFLAGS)' -o $(LINUX_BIN) ./cmd/rss-tool/...
 	@echo "Created: $(LINUX_BIN)"
 
 linux-arm64: $(LINUXARM64_BIN)  ## Build Linux/arm64 binary
 
 $(LINUXARM64_BIN): $(wildcard */*.go) .prepare
-	GOARCH=arm64 GOOS=linux go build -ldflags='$(LDFLAGS)' -o $(LINUXARM64_BIN) cmd/*.go
+	GOARCH=arm64 GOOS=linux go build -ldflags='$(LDFLAGS)' -o $(LINUXARM64_BIN) ./cmd/rss-tool/...
 	@echo "Created: $(LINUXARM64_BIN)"
 
 linux-arm32: $(LINUXARM32_BIN)  ## Build Linux/arm64 binary
 
 $(LINUXARM32_BIN): $(wildcard */*.go) .prepare
-	GOARCH=arm GOOS=linux go build -ldflags='$(LDFLAGS)' -o $(LINUXARM32_BIN) cmd/*.go
+	GOARCH=arm GOOS=linux go build -ldflags='$(LDFLAGS)' -o $(LINUXARM32_BIN) ./cmd/rss-tool/...
 	@echo "Created: $(LINUXARM32_BIN)"
 
 darwin: $(DARWIN_BIN)  ## Build MacOS/x86_64 binary
 
 $(DARWIN_BIN): $(wildcard */*.go) .prepare
-	GOARCH=amd64 GOOS=darwin go build -ldflags='$(LDFLAGS)' -o $(DARWIN_BIN) cmd/*.go
+	GOARCH=amd64 GOOS=darwin go build -ldflags='$(LDFLAGS)' -o $(DARWIN_BIN) ./cmd/rss-tool/...
 	@echo "Created: $(DARWIN_BIN)"
 
 $(OUTPUT_NAME): $(wildcard */*.go) .prepare
-	go build -ldflags='$(LDFLAGS)' -o $(OUTPUT_NAME) cmd/*.go
+	go build -ldflags='$(LDFLAGS)' -o $(OUTPUT_NAME) ./cmd/rss-tool/...
 	@echo "Created: $(OUTPUT_NAME)"
