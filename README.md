@@ -1,3 +1,7 @@
+**This tool is deprecated.**
+
+Suggest you checkout [rss4transmission](https://github.com/synfinatic/rss4transmission).
+
 # RSS Download Tool
 
 Service making it easy and fast to download files hosted on RSS
